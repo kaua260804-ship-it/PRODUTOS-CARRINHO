@@ -1,5 +1,13 @@
 /* ============================================================
    productCard.js — Renderização do card do produto pesquisado
+   ------------------------------------------------------------
+   Melhorias desta versão:
+     - Sempre que renderiza, faz scroll suave até o card
+       (útil quando o usuário clica em histórico/autocomplete)
+     - Destaque visual quando o produto já está no carrinho
+     - Input de quantidade SEMPRE visível e editável
+     - Botão "Adicionar" grande e destacado
+     - Botão "Atualizar quantidade" quando já existe
    ============================================================ */
 
 const ProductCard = (() => {
@@ -9,13 +17,17 @@ const ProductCard = (() => {
   function init() {
     root = document.getElementById('productResult');
     if (!root) return;
-    // Delegação de eventos (o conteúdo é dinâmico)
     root.addEventListener('click', onRootClick);
     root.addEventListener('change', onRootChange);
   }
 
-  function render(product) {
-    if (!root) return;
+  /**
+   * Renderiza o card e rola até ele.
+   * @param {object} product
+   * @param {{scroll?: boolean}} [opts]
+   */
+  function render(product, opts = {}) {
+    if (!root || !product) return;
     currentProduct = product;
 
     const precoHtml = product.precoEncontrado
@@ -26,13 +38,13 @@ const ProductCard = (() => {
     const jaNoCarrinho = Cart.has(product.seqproduto);
     const qtdAtual = Cart.getQty(product.seqproduto);
 
-    const alertHtml = jaNoCarrinho ? `
-      <div class="already-in-cart">
-        <i class="fa-solid fa-circle-info"></i>
-        <span>Este item já está no carrinho (<strong>${qtdAtual}</strong> ${qtdAtual === 1 ? 'unidade' : 'unidades'}).</span>
-        <button data-action="update-qty">Atualizar quantidade</button>
-      </div>
-    ` : '';
+    const alertHtml = jaNoCarrinho
+      ? `<div class="already-in-cart">
+           <i class="fa-solid fa-circle-info"></i>
+           <span>Este item já está no carrinho (<strong>${qtdAtual}</strong> ${qtdAtual === 1 ? 'unidade' : 'unidades'}).</span>
+           <button type="button" data-action="update-qty">Atualizar quantidade</button>
+         </div>`
+      : '';
 
     root.innerHTML = `
       <div class="card product-card" data-seq="${Utils.escapeHtml(product.seqproduto)}">
@@ -73,7 +85,7 @@ const ProductCard = (() => {
               inputmode="numeric"
               aria-label="Quantidade">
           </div>
-          <button class="btn btn-success btn-add-cart" data-action="add">
+          <button type="button" class="btn btn-success btn-add-cart" data-action="add">
             <i class="fa-solid fa-plus"></i> Adicionar ao Carrinho
           </button>
         </div>
@@ -82,15 +94,27 @@ const ProductCard = (() => {
       </div>
     `;
 
-    // Foco no botão adicionar para uso rápido em loja
+    // Scroll suave até o card (a menos que opts.scroll === false)
+    if (opts.scroll !== false) {
+      setTimeout(() => {
+        const card = root.querySelector('.product-card');
+        if (card) {
+          card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 50);
+    }
+
+    // Foco no input de quantidade (útil para tablet/loja)
     setTimeout(() => {
-      const addBtn = root.querySelector('[data-action="add"]');
-      if (addBtn) addBtn.focus({ preventScroll: true });
-    }, 60);
+      const qty = root.querySelector('#qtyInput');
+      if (qty) {
+        qty.focus({ preventScroll: true });
+        qty.select();
+      }
+    }, 120);
   }
 
   function onRootChange(e) {
-    // Normaliza quantidade mínima
     if (e.target.matches('#qtyInput')) {
       let v = parseInt(e.target.value, 10);
       if (isNaN(v) || v < 1) { v = 1; e.target.value = '1'; }
@@ -106,14 +130,9 @@ const ProductCard = (() => {
       const qtyInput = root.querySelector('#qtyInput');
       const qty = Math.max(1, parseInt(qtyInput?.value, 10) || 1);
       const res = Cart.add(currentProduct, qty);
-      // Re-renderiza o card para refletir "já no carrinho"
-      render(currentProduct);
-      // Foco de volta no input de código de barras (agiliza próxima leitura)
-      setTimeout(() => {
-        const bc = document.getElementById('barcodeInput');
-        if (bc) bc.focus();
-      }, 80);
-      // Pequena animação
+      render(currentProduct, { scroll: false });
+
+      // Animação de sucesso
       if (res && !res.updated) {
         const cardEl = root.querySelector('.product-card');
         if (cardEl) {
@@ -121,20 +140,23 @@ const ProductCard = (() => {
           setTimeout(() => cardEl.classList.remove('just-added'), 600);
         }
       }
+
+      // Foco de volta no input de código de barras (para próxima leitura)
+      setTimeout(() => {
+        const bc = document.getElementById('barcodeInput');
+        if (bc) bc.focus();
+      }, 80);
     }
 
     if (action === 'update-qty') {
       const qtyInput = root.querySelector('#qtyInput');
       const qty = Math.max(1, parseInt(qtyInput?.value, 10) || 1);
       Cart.setQty(currentProduct.seqproduto, Cart.getQty(currentProduct.seqproduto) + qty);
-      render(currentProduct);
+      render(currentProduct, { scroll: false });
       Toast.success(`Quantidade de ${currentProduct.produto} atualizada.`, 'Carrinho');
     }
   }
 
-  /**
-   * Exibe um card de erro (produto não encontrado) com sugestões.
-   */
   function renderNotFound(query, suggestions = []) {
     if (!root) return;
     currentProduct = null;
@@ -166,7 +188,6 @@ const ProductCard = (() => {
       </div>
     `;
 
-    // Clique em sugestão
     root.querySelectorAll('.suggestion-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const seq = btn.getAttribute('data-seq');
