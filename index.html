@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#2563eb">
+  <title>Pesquisa de Preços — Compras Fribal</title>
+  <meta name="description" content="Consulta de preços por código de barras ou descrição, com carrinho de compras.">
+
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- CSS do projeto -->
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/scanner.css">
+  <link rel="stylesheet" href="css/cart.css">
+  <link rel="stylesheet" href="css/print.css">
+</head>
+<body>
+
+  <!-- ============ LOADING INICIAL ============ -->
+  <div id="loadingOverlay" class="loading-overlay" role="status" aria-live="polite">
+    <div class="spinner"></div>
+    <p class="loading-text">Carregando base de produtos…</p>
+  </div>
+
+  <!-- ============ HEADER ============ -->
+  <header class="app-header">
+    <div class="container header-inner">
+      <div class="brand">
+        <i class="fa-solid fa-barcode brand-icon"></i>
+        <div>
+          <h1>Pesquisa de Preços</h1>
+          <span class="brand-sub">Compras Fribal</span>
+        </div>
+      </div>
+      <div class="header-status" id="headerStatus">
+        <i class="fa-solid fa-circle-notch fa-spin"></i>
+        <span id="headerStatusText">Carregando…</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============ CONTEÚDO PRINCIPAL ============ -->
+  <main class="container app-main">
+
+    <!-- ---------- COLUNA ESQUERDA (pesquisa) ---------- -->
+    <section class="col-search" aria-label="Área de pesquisa">
+
+      <!-- Campo de entrada de código de barras -->
+      <div class="card search-card">
+        <h2 class="card-title"><i class="fa-solid fa-barcode"></i> Código de Barras</h2>
+
+        <div class="barcode-row">
+          <input
+            type="text"
+            id="barcodeInput"
+            class="input barcode-input"
+            placeholder="Escaneie ou digite o código…"
+            inputmode="numeric"
+            autocomplete="off"
+            autofocus
+            aria-label="Campo de código de barras">
+          <button id="btnScan" class="btn btn-primary btn-scan" title="Escanear com câmera">
+            <i class="fa-solid fa-camera"></i>
+            <span>Escanear</span>
+          </button>
+        </div>
+        <p class="hint"><i class="fa-solid fa-circle-info"></i> Compatível com scanner USB e leitura por câmera.</p>
+      </div>
+
+      <!-- Campo de pesquisa por descrição -->
+      <div class="card search-card">
+        <h2 class="card-title"><i class="fa-solid fa-magnifying-glass"></i> Pesquisa por Descrição</h2>
+        <div class="autocomplete-wrap">
+          <input
+            type="text"
+            id="descInput"
+            class="input"
+            placeholder="Ex.: file frango, arroz, leite…"
+            autocomplete="off"
+            aria-label="Pesquisa por descrição"
+            aria-autocomplete="list">
+          <ul id="autocompleteList" class="autocomplete-list" role="listbox" hidden></ul>
+        </div>
+        <p class="hint"><i class="fa-solid fa-lightbulb"></i> Busca inteligente — ignora acentos e aceita várias palavras.</p>
+      </div>
+
+      <!-- Resultado da pesquisa (card do produto) -->
+      <div id="productResult" class="product-result" aria-live="polite"></div>
+
+      <!-- Histórico de pesquisas -->
+      <div class="card history-card">
+        <div class="card-head-row">
+          <h2 class="card-title"><i class="fa-solid fa-clock-rotate-left"></i> Histórico da sessão</h2>
+          <button id="btnClearHistory" class="btn btn-ghost btn-sm" title="Limpar histórico">
+            <i class="fa-solid fa-trash-can"></i> Limpar
+          </button>
+        </div>
+        <ul id="historyList" class="history-list">
+          <li class="empty-state small"><i class="fa-regular fa-clock"></i> Nenhuma pesquisa ainda.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ---------- COLUNA DIREITA (carrinho) ---------- -->
+    <aside class="col-cart" aria-label="Carrinho de compras">
+      <div class="card cart-card" id="cartCard">
+        <div class="card-head-row">
+          <h2 class="card-title"><i class="fa-solid fa-cart-shopping"></i> Carrinho</h2>
+          <span id="cartCountBadge" class="badge badge-primary">0</span>
+        </div>
+
+        <!-- Lista de itens -->
+        <ul id="cartList" class="cart-list">
+          <li class="empty-state"><i class="fa-solid fa-cart-plus"></i> Seu carrinho está vazio.<br><small>Escaneie um código ou pesquise um produto.</small></li>
+        </ul>
+
+        <!-- Resumo / ações -->
+        <div class="cart-summary">
+          <div class="summary-line">
+            <span>Itens distintos</span>
+            <strong id="cartDistinctCount">0</strong>
+          </div>
+          <div class="summary-line">
+            <span>Quantidade total</span>
+            <strong id="cartTotalQty">0</strong>
+          </div>
+          <div class="summary-total">
+            <span>TOTAL GERAL</span>
+            <strong id="cartGrandTotal">R$ 0,00</strong>
+          </div>
+
+          <div class="cart-actions">
+            <button id="btnExportPdf" class="btn btn-outline" title="Imprimir / PDF">
+              <i class="fa-solid fa-file-pdf"></i> PDF
+            </button>
+            <button id="btnExportCsv" class="btn btn-outline" title="Exportar CSV">
+              <i class="fa-solid fa-file-csv"></i> CSV
+            </button>
+            <button id="btnClearCart" class="btn btn-danger" title="Limpar carrinho">
+              <i class="fa-solid fa-broom"></i> Limpar
+            </button>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- ============ BOTÃO FLUTUANTE MOBILE ============ -->
+  <button id="floatingCartBtn" class="floating-cart-btn" aria-label="Abrir carrinho">
+    <i class="fa-solid fa-cart-shopping"></i>
+    <span id="floatingCartText">0 itens — R$ 0,00</span>
+  </button>
+
+  <!-- ============ MODAL DO SCANNER ============ -->
+  <div id="scannerModal" class="modal" hidden>
+    <div class="modal-backdrop" data-close-modal></div>
+    <div class="modal-content scanner-modal-content" role="dialog" aria-modal="true" aria-label="Leitor de código de barras">
+      <div class="modal-head">
+        <h3><i class="fa-solid fa-camera"></i> Escanear código</h3>
+        <button class="btn btn-icon" data-close-modal title="Fechar"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div id="qrReader" class="qr-reader"></div>
+      <p class="hint center">Aponte a câmera para o código de barras.</p>
+    </div>
+  </div>
+
+  <!-- ============ MODAL DE CONFIRMAÇÃO ============ -->
+  <div id="confirmModal" class="modal" hidden>
+    <div class="modal-backdrop" data-close-modal></div>
+    <div class="modal-content confirm-modal-content" role="dialog" aria-modal="true" aria-label="Confirmação">
+      <div class="modal-head">
+        <h3 id="confirmTitle">Confirmar ação</h3>
+      </div>
+      <p id="confirmMessage" class="confirm-message">Tem certeza?</p>
+      <div class="modal-actions">
+        <button id="confirmCancel" class="btn btn-ghost" data-close-modal>Cancelar</button>
+        <button id="confirmOk" class="btn btn-danger">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ CONTAINER DE TOASTS ============ -->
+  <div id="toastContainer" class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+  <!-- ============ CDNs ============ -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+
+  <!-- ============ JS DO PROJETO (ordem importa) ============ -->
+  <script src="js/config.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/toast.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/fileReader.js"></script>
+  <script src="js/dataProcessor.js"></script>
+  <script src="js/searchEngine.js"></script>
+  <script src="js/scanner.js"></script>
+  <script src="js/cart.js"></script>
+  <script src="js/productCard.js"></script>
+  <script src="js/history.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

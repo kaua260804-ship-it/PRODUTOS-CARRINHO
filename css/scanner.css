@@ -1,0 +1,68 @@
+/* ============================================================
+   scanner.css — Estilos do leitor de código de barras
+   ============================================================ */
+
+.barcode-row {
+  display: flex;
+  gap: 8px;
+}
+
+.barcode-input {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: 1.05rem;
+  letter-spacing: 1px;
+  font-weight: 600;
+}
+
+.btn-scan {
+  flex-shrink: 0;
+}
+
+/* ---------- MODAL DO SCANNER ---------- */
+.scanner-modal-content {
+  max-width: 480px;
+}
+
+.qr-reader {
+  width: 100%;
+  min-height: 260px;
+  background: #000;
+  border-radius: var(--radius);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 0.85rem;
+}
+
+/* Esconde controles padrão feios do html5-qrcode */
+#qrReader img[alt="Info icon"] { display: none !important; }
+#qrReader__dashboard { padding: 8px 0; }
+#qrReader__scan_region { background: #000; }
+
+/* Destaque visual durante leitura bem-sucedida */
+.qr-reader.scan-success {
+  box-shadow: 0 0 0 4px var(--color-success);
+}
+
+/* ---------- ANIMAÇÃO DE "BIPE VISUAL" ---------- */
+.scan-flash {
+  animation: scanFlash 0.5s ease;
+}
+
+@keyframes scanFlash {
+  0%   { background: var(--color-success); }
+  100% { background: transparent; }
+}
+
+/* ---------- MOBILE ---------- */
+@media (max-width: 480px) {
+  .btn-scan span { display: none; }
+  .btn-scan {
+    width: 48px;
+    min-height: 48px;
+    padding: 0;
+  }
+}

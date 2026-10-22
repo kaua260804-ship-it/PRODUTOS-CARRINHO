@@ -1,0 +1,183 @@
+/* ============================================================
+   layout.css — Grid principal, header, colunas, responsividade
+   ============================================================ */
+
+.container {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+/* ---------- HEADER ---------- */
+.app-header {
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  box-shadow: var(--shadow-sm);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand-icon {
+  font-size: 1.6rem;
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+  padding: 10px;
+  border-radius: var(--radius);
+}
+
+.brand h1 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.brand-sub {
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+}
+
+.header-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+  background: var(--color-surface-alt);
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+}
+
+.header-status.status-ready { color: var(--color-success); border-color: #bbf7d0; background: #f0fdf4; }
+.header-status.status-error { color: var(--color-danger); border-color: #fecaca; background: #fef2f2; }
+
+/* ---------- MAIN GRID ---------- */
+.app-main {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+  padding-top: 20px;
+  padding-bottom: 100px; /* espaço p/ botão flutuante */
+}
+
+@media (min-width: 960px) {
+  .app-main {
+    grid-template-columns: 6fr 4fr; /* 60% / 40% */
+    align-items: start;
+    padding-bottom: 40px;
+  }
+}
+
+.col-search {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  min-width: 0;
+}
+
+.col-cart {
+  min-width: 0;
+}
+
+/* Carrinho sticky em desktop */
+@media (min-width: 960px) {
+  .col-cart {
+    position: sticky;
+    top: 84px;
+  }
+}
+
+/* ---------- LOADING OVERLAY ---------- */
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.92);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  z-index: 9999;
+  transition: opacity var(--transition);
+}
+
+.loading-overlay.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.loading-text {
+  color: var(--color-text-muted);
+  font-size: 0.95rem;
+}
+
+/* ---------- BOTÃO FLUTUANTE MOBILE ---------- */
+.floating-cart-btn {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--color-primary);
+  color: #fff;
+  border: none;
+  padding: 12px 20px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  box-shadow: var(--shadow-lg);
+  z-index: 60;
+  transition: transform var(--transition), background var(--transition);
+}
+
+.floating-cart-btn:active { transform: translateX(-50%) scale(0.97); }
+
+.floating-cart-btn .badge-dot {
+  background: var(--color-danger);
+  color: #fff;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 0.75rem;
+}
+
+/* Em desktop, esconde o botão flutuante */
+@media (min-width: 960px) {
+  .floating-cart-btn { display: none; }
+}
+
+/* ---------- IMPRESSÃO ---------- */
+@media print {
+  .app-header,
+  .col-search,
+  .floating-cart-btn,
+  .toast-container,
+  .loading-overlay,
+  .modal,
+  .cart-actions {
+    display: none !important;
+  }
+  .app-main {
+    display: block;
+    padding: 0;
+  }
+  .col-cart { position: static; }
+}
