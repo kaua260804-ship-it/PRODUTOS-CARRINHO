@@ -1,5 +1,10 @@
 /* ============================================================
-   history.js — Histórico de pesquisas da sessão (últimos 20)
+   history.js — Histórico de pesquisas (últimos 20)
+   ------------------------------------------------------------
+   Correções desta versão:
+     - Ao clicar no histórico, o card é renderizado E a página
+       rola até ele (feedback visual imediato)
+     - Prioriza buscar por SEQPRODUTO; se falhar, tenta código
    ============================================================ */
 
 const History = (() => {
@@ -38,6 +43,7 @@ const History = (() => {
         const btn = e.target.closest('[data-seq]');
         if (!btn) return;
         const seq = btn.getAttribute('data-seq');
+        // selectProduct já faz scroll e render
         SearchEngine.selectProduct(seq);
       });
     }
@@ -59,7 +65,6 @@ const History = (() => {
   function push(product) {
     if (!product || !product.seqproduto) return;
     const seq = String(product.seqproduto);
-    // Remove duplicata anterior (move para o topo)
     items = items.filter(i => i.seqproduto !== seq);
     items.unshift({
       seqproduto: seq,
@@ -70,9 +75,7 @@ const History = (() => {
       grupo: product.grupo || '—',
       ts: Date.now()
     });
-    if (items.length > CONFIG.MAX_HISTORY) {
-      items = items.slice(0, CONFIG.MAX_HISTORY);
-    }
+    if (items.length > CONFIG.MAX_HISTORY) items = items.slice(0, CONFIG.MAX_HISTORY);
     Storage.saveHistory(items);
     render();
   }
