@@ -1,10 +1,10 @@
 /* ============================================================
    searchEngine.js — Autocomplete + busca por descrição
    ------------------------------------------------------------
-   Correções desta versão:
-     - Ao clicar numa sugestão, o card é renderizado E a página
-       rola até ele (feedback claro para o usuário)
-     - Fecha o dropdown antes de rolar (evita sobreposição)
+   Correção desta versão:
+     - Ao selecionar, PRIMEIRO renderiza o card (com scroll),
+       DEPOIS adiciona ao histórico — a ordem importa para o
+       usuário ver o card em destaque.
    ============================================================ */
 
 const SearchEngine = (() => {
@@ -106,14 +106,13 @@ const SearchEngine = (() => {
   }
 
   /**
-   * Seleciona um produto pelo SEQPRODUTO (ou pelo código).
-   * Renderiza o card, adiciona ao histórico e rola até o card.
+   * Seleciona um produto (por SEQ ou código).
+   * ORDEM CORRETA: fecha dropdown → renderiza card → histórico.
    */
   function selectProduct(seqOrProduct) {
     let full = null;
 
     if (typeof seqOrProduct === 'string') {
-      // Pode ser SEQPRODUTO ou código de barras
       full = DataProcessor.getBySeq(seqOrProduct) || DataProcessor.findByBarcode(seqOrProduct);
     } else if (seqOrProduct && seqOrProduct.seqproduto) {
       full = seqOrProduct;
@@ -124,9 +123,12 @@ const SearchEngine = (() => {
       return;
     }
 
-    close(); // fecha o dropdown antes de rolar
+    close(); // fecha dropdown primeiro
 
+    // 1) Renderiza card com scroll garantido
     if (window.ProductCard) ProductCard.render(full, { scroll: true });
+
+    // 2) Só depois registra no histórico
     if (window.History) History.push(full);
   }
 
