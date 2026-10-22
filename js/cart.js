@@ -1,6 +1,9 @@
 /* ============================================================
    cart.js — Gerenciamento do carrinho (add/remove/qtd/total)
    Chave única: SEQPRODUTO
+   ------------------------------------------------------------
+   IMPORTANTE: ConfirmModal vive em js/confirmModal.js e deve
+   ser carregado ANTES deste arquivo no index.html.
    ============================================================ */
 
 const Cart = (() => {
@@ -9,17 +12,17 @@ const Cart = (() => {
   const els = {};
 
   function cacheEls() {
-    els.list = document.getElementById('cartList');
-    els.badge = document.getElementById('cartCountBadge');
-    els.distinct = document.getElementById('cartDistinctCount');
-    els.totalQty = document.getElementById('cartTotalQty');
-    els.grand = document.getElementById('cartGrandTotal');
-    els.btnClear = document.getElementById('btnClearCart');
-    els.btnPdf = document.getElementById('btnExportPdf');
-    els.btnCsv = document.getElementById('btnExportCsv');
-    els.floating = document.getElementById('floatingCartBtn');
+    els.list         = document.getElementById('cartList');
+    els.badge        = document.getElementById('cartCountBadge');
+    els.distinct     = document.getElementById('cartDistinctCount');
+    els.totalQty     = document.getElementById('cartTotalQty');
+    els.grand        = document.getElementById('cartGrandTotal');
+    els.btnClear     = document.getElementById('btnClearCart');
+    els.btnPdf       = document.getElementById('btnExportPdf');
+    els.btnCsv       = document.getElementById('btnExportCsv');
+    els.floating     = document.getElementById('floatingCartBtn');
     els.floatingText = document.getElementById('floatingCartText');
-    els.cartCard = document.getElementById('cartCard');
+    els.cartCard     = document.getElementById('cartCard');
   }
 
   /* ---------- Carregamento ---------- */
@@ -89,9 +92,6 @@ const Cart = (() => {
     return { updated: false, qty: q };
   }
 
-  /**
-   * Define quantidade absoluta. Se <= 0, remove.
-   */
   function setQty(seq, qty) {
     const idx = findIndex(seq);
     if (idx === -1) return;
@@ -156,7 +156,6 @@ const Cart = (() => {
   function render() {
     if (!els.list) return;
 
-    // Lista
     if (!items.length) {
       els.list.innerHTML = `<li class="empty-state"><i class="fa-solid fa-cart-plus"></i> Seu carrinho está vazio.<br><small>Escaneie um código ou pesquise um produto.</small></li>`;
     } else {
@@ -164,28 +163,25 @@ const Cart = (() => {
       bindItemEvents();
     }
 
-    // Resumo
-    const total = getTotal();
+    const total    = getTotal();
     const totalQty = getTotalQty();
     const distinct = getDistinctCount();
 
-    if (els.badge) els.badge.textContent = String(distinct);
-    if (els.distinct) els.distinct.textContent = String(distinct);
-    if (els.totalQty) els.totalQty.textContent = String(totalQty);
-    if (els.grand) els.grand.textContent = Utils.formatBRL(total);
+    if (els.badge)        els.badge.textContent = String(distinct);
+    if (els.distinct)     els.distinct.textContent = String(distinct);
+    if (els.totalQty)     els.totalQty.textContent = String(totalQty);
+    if (els.grand)        els.grand.textContent = Utils.formatBRL(total);
 
-    // Botão flutuante mobile
     if (els.floatingText) {
-      els.floatingText.textContent = `${totalQty} ${totalQty === 1 ? 'item' : 'itens'} — ${Utils.formatBRL(total)}`;
+      els.floatingText.textContent =
+        `${totalQty} ${totalQty === 1 ? 'item' : 'itens'} — ${Utils.formatBRL(total)}`;
     }
     if (els.floating) {
       els.floating.classList.toggle('has-items', items.length > 0);
     }
 
-    // Data para impressão
     if (els.cartCard) {
-      els.cartCard.setAttribute('data-print-date',
-        new Date().toLocaleString('pt-BR'));
+      els.cartCard.setAttribute('data-print-date', new Date().toLocaleString('pt-BR'));
     }
   }
 
@@ -262,7 +258,6 @@ const Cart = (() => {
       it.qty,
       (it.preco * it.qty).toFixed(2).replace('.', ',')
     ]);
-    // Total geral
     rows.push([]);
     rows.push(['', '', '', '', '', 'TOTAL', getTotal().toFixed(2).replace('.', ',')]);
 
@@ -273,7 +268,6 @@ const Cart = (() => {
       }).join(';'))
       .join('\r\n');
 
-    // BOM para Excel reconhecer UTF-8
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -292,22 +286,21 @@ const Cart = (() => {
       Toast.warning('Carrinho vazio — nada para imprimir.');
       return;
     }
-    // Usa a própria janela com CSS @media print (print.css)
     window.print();
   }
 
-  /* ---------- Init / eventos globais ---------- */
+  /* ---------- Init ---------- */
   function init() {
     cacheEls();
     load();
 
-    // Botões
     if (els.btnClear) {
       els.btnClear.addEventListener('click', () => {
         if (!items.length) {
           Toast.info('O carrinho já está vazio.');
           return;
         }
+        // ConfirmModal agora vem de window.ConfirmModal
         window.ConfirmModal.open({
           title: 'Limpar carrinho',
           message: `Remover todos os ${items.length} itens do carrinho? Esta ação não pode ser desfeita.`,
@@ -324,7 +317,6 @@ const Cart = (() => {
     if (els.btnPdf) els.btnPdf.addEventListener('click', exportPdf);
     if (els.btnCsv) els.btnCsv.addEventListener('click', exportCsv);
 
-    // Botão flutuante (mobile): scroll suave até o carrinho
     if (els.floating) {
       els.floating.addEventListener('click', () => {
         const card = els.cartCard;
@@ -335,64 +327,8 @@ const Cart = (() => {
   }
 
   return {
-    init,
-    add,
-    remove,
-    setQty,
-    increment,
-    clear,
-    has,
-    getQty,
-    getTotal,
-    getTotalQty,
-    getDistinctCount,
-    getItems,
-    render,
-    exportCsv,
-    exportPdf
+    init, add, remove, setQty, increment, clear,
+    has, getQty, getTotal, getTotalQty, getDistinctCount, getItems,
+    render, exportCsv, exportPdf
   };
-})();
-
-/* ============================================================
-   ConfirmModal — modal genérico de confirmação
-   (declarado aqui para simplicidade; usado pelo cart e main)
-   ============================================================ */
-const ConfirmModal = (() => {
-  let pendingOnConfirm = null;
-
-  function open({ title = 'Confirmar', message = 'Tem certeza?', confirmText = 'Confirmar', onConfirm = null }) {
-    const modal = document.getElementById('confirmModal');
-    if (!modal) { if (onConfirm && window.confirm(message)) onConfirm(); return; }
-    document.getElementById('confirmTitle').textContent = title;
-    document.getElementById('confirmMessage').textContent = message;
-    const ok = document.getElementById('confirmOk');
-    ok.textContent = confirmText;
-    pendingOnConfirm = onConfirm;
-    modal.hidden = false;
-    ok.focus();
-  }
-
-  function close() {
-    const modal = document.getElementById('confirmModal');
-    if (modal) modal.hidden = true;
-    pendingOnConfirm = null;
-  }
-
-  function init() {
-    const modal = document.getElementById('confirmModal');
-    if (!modal) return;
-    modal.querySelectorAll('[data-close-modal]').forEach(el => {
-      el.addEventListener('click', close);
-    });
-    document.getElementById('confirmOk').addEventListener('click', () => {
-      const fn = pendingOnConfirm;
-      close();
-      if (typeof fn === 'function') fn();
-    });
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && !modal.hidden) close();
-    });
-  }
-
-  return { open, close, init };
 })();
