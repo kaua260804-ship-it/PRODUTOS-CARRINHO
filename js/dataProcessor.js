@@ -1,43 +1,94 @@
 /* ============================================================
    dataProcessor.js — Cruzamento BASE + ARVORES e índices
+   ------------------------------------------------------------
+   Melhorias desta versão:
+     - Índice de código de barras MULTI-FORMA:
+         * código exato
+         * sem zeros à esquerda
+         * com padding EAN-8 / EAN-13 / UPC-A (zeros à esquerda)
+     - Normalização de código remove espaços, BOM, NBSP, hífens
+     - Busca por código é tolerante a "0" à frente e no fim
    ============================================================ */
 
 const DataProcessor = (() => {
-  // Estrutura principal
   const state = {
     base:    { headers: [], rows: [], cols: {} },
     arvores: { headers: [], rows: [], cols: {} },
 
     // Índices
-    byBarcode: new Map(),   // CODACESSO (string) -> { seqproduto, produto }
-    bySeqBase: new Map(),   // SEQPRODUTO      -> { seqproduto, produto, codigos[] }
-    bySeqArv:  new Map(),   // SEQ PROD        -> linha ARVORES (objeto)
+    byBarcode: new Map(),   // chave canônica -> { seqproduto, produto }
+    bySeqBase: new Map(),   // SEQPRODUTO -> { seqproduto, produto, codigos[] }
+    bySeqArv:  new Map(),   // SEQ PROD  -> linha ARVORES
     searchIndex: [],        // [{ seqproduto, produto, norm }]
 
     loaded: false,
     stats: { baseCount: 0, arvCount: 0, barcodesCount: 0 }
   };
 
-  /**
-   * Chave canônica de sequencial (string, sem espaços).
-   */
+  /* ------------------------------------------------------------
+     Normalização de sequencial
+     ------------------------------------------------------------ */
   function seqKey(v) {
     if (v == null) return '';
     return String(v).trim();
   }
 
-  /**
-   * Normaliza código de barras: só dígitos (mantém letras p/ Code128).
-   * Para evitar discrepâncias (zeros à esquerda), comparamos como string.
-   */
-  function codeKey(v) {
-    if (v == null) return '';
-    return String(v).trim();
+  /* ------------------------------------------------------------
+     Normalização de código de barras
+     ------------------------------------------------------------
+     - Remove BOM, NBSP, espaços, hífens, pontos e apóstrofos
+     - Mantém letras (Code128 pode ter letras)
+     - Mantém dígitos
+     ------------------------------------------------------------ */
+  function normalizeCode(raw) {
+    if (raw == null) return '';
+    return String(raw)
+      .replace(/[\uFEFF\u00A0\u200B-\u200D\u2060]/g, '')
+      .replace(/[\s\-\.'"]/g, '')
+      .trim();
   }
 
-  /**
-   * Constrói todos os índices em memória.
-   */
+  /* ------------------------------------------------------------
+     Gera todas as variantes possíveis de um código
+     ------------------------------------------------------------
+     Para "0123" gera: ["0123", "123", "00000123", "0000000000123"]
+     Para "123"  gera: ["123", "00000123", "0000000000123"]
+     Para "0000123" gera: ["0000123", "123", "00000123", ...]
+     Isso cobre:
+       - Excel que removeu os zeros ("123" salvo como número)
+       - Leitor que devolveu com zeros ("000123")
+       - EAN-8 (8 dígitos), EAN-13 (13), UPC-A (12)
+     ------------------------------------------------------------ */
+  function codeVariants(raw) {
+    const code = normalizeCode(raw);
+    if (!code) return [];
+
+    const variants = new Set();
+    variants.add(code);
+
+    // Só gera variantes numéricas se o código for todo dígitos
+    if (/^\d+$/.test(code)) {
+      const stripped = code.replace(/^0+/, '') || '0';
+      variants.add(stripped);
+
+      // Padding EAN-8
+      if (stripped.length <= 8) variants.add(stripped.padStart(8, '0'));
+      // Padding UPC-A / EAN-13 (usa 12 e 13)
+      if (stripped.length <= 12) variants.add(stripped.padStart(12, '0'));
+      if (stripped.length <= 13) variants.add(stripped.padStart(13, '0'));
+
+      // Também gera variantes do código original sem os zeros (se houver)
+      if (code !== stripped) {
+        if (stripped.length <= 8) variants.add(code.slice(-8).padStart(8, '0'));
+      }
+    }
+
+    return [...variants].filter(Boolean);
+  }
+
+  /* ------------------------------------------------------------
+     Constrói todos os índices em memória
+     ------------------------------------------------------------ */
   function build(data) {
     state.base = data.base;
     state.arvores = data.arvores;
@@ -54,32 +105,30 @@ const DataProcessor = (() => {
     for (const row of state.base.rows) {
       const seq = seqKey(row[bCols.SEQPRODUTO]);
       const produto = String(row[bCols.PRODUTO] ?? '').trim();
-      const codigo = codeKey(row[bCols.CODACESSO]);
+      const codigoRaw = row[bCols.CODACESSO];
+      const codigo = normalizeCode(codigoRaw);
       if (!seq || !produto) continue;
 
-      // bySeqBase (nome oficial — mantém o primeiro encontrado)
+      // bySeqBase (mantém o primeiro nome encontrado)
       if (!state.bySeqBase.has(seq)) {
-        state.bySeqBase.set(seq, {
-          seqproduto: seq,
-          produto,
-          codigos: []
-        });
+        state.bySeqBase.set(seq, { seqproduto: seq, produto, codigos: [] });
       }
 
-      // Acumula códigos de barras
       if (codigo) {
-        state.bySeqBase.get(seq).codigos.push(codigo);
+        const entry = state.bySeqBase.get(seq);
+        if (!entry.codigos.includes(codigo)) entry.codigos.push(codigo);
 
-        // Múltiplos CODACESSO para o mesmo produto: guarda o primeiro mapeamento.
-        // Não sobrescreve para preservar consistência caso haja duplicidade.
-        if (!state.byBarcode.has(codigo)) {
-          state.byBarcode.set(codigo, { seqproduto: seq, produto });
+        // Indexa TODAS as variantes — mas NÃO sobrescreve mapeamentos já existentes
+        const variants = codeVariants(codigo);
+        for (const v of variants) {
+          if (!state.byBarcode.has(v)) {
+            state.byBarcode.set(v, { seqproduto: seq, produto });
+          }
         }
       }
     }
 
     /* ---------- 2) Índice de busca por descrição ---------- */
-    // Garante uma entrada por SEQPRODUTO (nome oficial)
     state.searchIndex = [];
     for (const [seq, item] of state.bySeqBase.entries()) {
       state.searchIndex.push({
@@ -93,7 +142,6 @@ const DataProcessor = (() => {
     for (const row of state.arvores.rows) {
       const seq = seqKey(row[aCols.SEQ_PROD]);
       if (!seq) continue;
-      // Primeira linha encontrada por SEQ_PROD (não sobrescreve)
       if (!state.bySeqArv.has(seq)) {
         state.bySeqArv.set(seq, row);
       }
@@ -106,24 +154,40 @@ const DataProcessor = (() => {
     };
 
     state.loaded = true;
+    console.info(
+      `[dataProcessor] Índice pronto: ${state.stats.baseCount} produtos, ` +
+      `${state.stats.barcodesCount} chaves de código (variantes inclusas).`
+    );
     return state.stats;
   }
 
-  /**
-   * Busca por código de barras. Retorna produto completo ou null.
-   */
+  /* ------------------------------------------------------------
+     Busca por código de barras — tenta TODAS as variantes
+     ------------------------------------------------------------ */
   function findByBarcode(rawCode) {
-    const code = codeKey(rawCode);
+    const code = normalizeCode(rawCode);
     if (!code) return null;
-    const hit = state.byBarcode.get(code);
-    if (!hit) return null;
-    return composeProduct(hit.seqproduto);
+
+    // 1) Tentativa direta (mais rápido)
+    let hit = state.byBarcode.get(code);
+    if (hit) return composeProduct(hit.seqproduto);
+
+    // 2) Tenta variantes (zeros à frente/atrás, padding)
+    const variants = codeVariants(code);
+    for (const v of variants) {
+      hit = state.byBarcode.get(v);
+      if (hit) {
+        console.info(`[dataProcessor] Código "${code}" casado via variante "${v}".`);
+        return composeProduct(hit.seqproduto);
+      }
+    }
+
+    return null;
   }
 
-  /**
-   * Monta o produto completo (BASE + ARVORES) a partir do SEQPRODUTO.
-   * Retorna null se o SEQPRODUTO não existir na BASE.
-   */
+  /* ------------------------------------------------------------
+     Monta o produto completo (BASE + ARVORES) a partir do SEQPRODUTO
+     ------------------------------------------------------------ */
   function composeProduct(seqRaw) {
     const seq = seqKey(seqRaw);
     const baseItem = state.bySeqBase.get(seq);
@@ -155,10 +219,6 @@ const DataProcessor = (() => {
         if (rawPrice !== '' && rawPrice != null && parsed > 0) {
           preco = parsed;
           precoEncontrado = true;
-        } else if (rawPrice !== '' && rawPrice != null && parsed === 0) {
-          // Pode ser preço 0 real — consideramos não cadastrado
-          preco = 0;
-          precoEncontrado = false;
         }
       }
     }
@@ -177,9 +237,9 @@ const DataProcessor = (() => {
     };
   }
 
-  /**
-   * Busca por descrição (retorna lista de até `limit` produtos simples).
-   */
+  /* ------------------------------------------------------------
+     Busca por descrição
+     ------------------------------------------------------------ */
   function searchByDescription(query, limit = CONFIG.MAX_AUTOCOMPLETE) {
     const tokens = Utils.tokenize(query);
     if (!tokens.length) return [];
@@ -188,10 +248,9 @@ const DataProcessor = (() => {
     for (const item of state.searchIndex) {
       if (Utils.matchesAllTokens(item.norm, tokens)) {
         results.push(item);
-        if (results.length >= limit * 4) break; // pré-corte
+        if (results.length >= limit * 4) break;
       }
     }
-    // Ordena por "melhor match": nome mais curto primeiro (mais específico)
     results.sort((a, b) => a.produto.length - b.produto.length);
     return results.slice(0, limit).map(r => ({
       seqproduto: r.seqproduto,
@@ -199,13 +258,12 @@ const DataProcessor = (() => {
     }));
   }
 
-  /**
-   * Sugestões parecidas (fallback quando não encontra nada).
-   */
+  /* ------------------------------------------------------------
+     Sugestões similares (fallback)
+     ------------------------------------------------------------ */
   function similarSuggestions(query, limit = 5) {
     const tokens = Utils.tokenize(query);
     if (!tokens.length) return [];
-    // Busca por qualquer token individual
     const scored = [];
     for (const item of state.searchIndex) {
       let score = 0;
@@ -219,9 +277,6 @@ const DataProcessor = (() => {
     }));
   }
 
-  /**
-   * Recompõe o produto a partir de uma sugestão (by SEQPRODUTO).
-   */
   function getBySeq(seq) {
     return composeProduct(seq);
   }
