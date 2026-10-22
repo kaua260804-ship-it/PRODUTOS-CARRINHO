@@ -34,40 +34,63 @@
 (function () {
   'use strict';
 
-  /* ---------- Status do header ---------- */
+  /* ------------------------------------------------------------
+     STATUS DO HEADER
+     ------------------------------------------------------------
+     Classes possíveis: (nenhuma) | status-ready | status-error
+     IMPORTANTE: só adicionamos classes quando o nome não é vazio
+     (evita o erro "The token provided must not be empty").
+     ------------------------------------------------------------ */
   function setHeaderStatus(type, text) {
     const el = document.getElementById('headerStatus');
     const txt = document.getElementById('headerStatusText');
     if (!el || !txt) return;
+
+    // Limpa classes de estado anteriores
     el.classList.remove('status-ready', 'status-error');
-    el.classList.add(type === 'ready' ? 'status-ready' : type === 'error' ? 'status-error' : '');
+
+    // Adiciona a classe de estado conforme o tipo (nunca vazio)
+    if (type === 'ready') {
+      el.classList.add('status-ready');
+    } else if (type === 'error') {
+      el.classList.add('status-error');
+    }
+    // 'loading' ou qualquer outro tipo: nenhuma classe adicional
+
+    // Atualiza ícone
     const icon = el.querySelector('i');
     if (icon) {
-      icon.className = type === 'ready'
-        ? 'fa-solid fa-circle-check'
-        : type === 'error'
-          ? 'fa-solid fa-circle-exclamation'
-          : 'fa-solid fa-circle-notch fa-spin';
+      if (type === 'ready') {
+        icon.className = 'fa-solid fa-circle-check';
+      } else if (type === 'error') {
+        icon.className = 'fa-solid fa-circle-exclamation';
+      } else {
+        icon.className = 'fa-solid fa-circle-notch fa-spin';
+      }
     }
-    txt.textContent = text;
+
+    // Atualiza texto
+    txt.textContent = text || '';
   }
 
   function hideLoading() {
     const overlay = document.getElementById('loadingOverlay');
     if (!overlay) return;
     overlay.classList.add('hidden');
-    setTimeout(() => { overlay.style.display = 'none'; }, 300);
+    setTimeout(() => {
+      overlay.style.display = 'none';
+    }, 300);
   }
 
   /* ---------- Boot principal ---------- */
   async function boot() {
     // 1) Componentes de UI que não dependem de dados
-    try { ConfirmModal.init(); } catch (e) { console.warn(e); }
-    try { Cart.init(); } catch (e) { console.warn(e); }
-    try { History.init(); } catch (e) { console.warn(e); }
-    try { ProductCard.init(); } catch (e) { console.warn(e); }
-    try { SearchEngine.init(); } catch (e) { console.warn(e); }
-    try { Scanner.init(); } catch (e) { console.warn(e); }
+    try { ConfirmModal.init(); } catch (e) { console.warn('[boot] ConfirmModal:', e); }
+    try { Cart.init(); } catch (e) { console.warn('[boot] Cart:', e); }
+    try { History.init(); } catch (e) { console.warn('[boot] History:', e); }
+    try { ProductCard.init(); } catch (e) { console.warn('[boot] ProductCard:', e); }
+    try { SearchEngine.init(); } catch (e) { console.warn('[boot] SearchEngine:', e); }
+    try { Scanner.init(); } catch (e) { console.warn('[boot] Scanner:', e); }
 
     // 2) Carregar planilha
     setHeaderStatus('loading', 'Carregando planilha…');
@@ -75,8 +98,10 @@
       const data = await FileReaderXLS.load();
       const stats = DataProcessor.build(data);
 
-      setHeaderStatus('ready',
-        `${stats.baseCount.toLocaleString('pt-BR')} produtos • ${stats.barcodesCount.toLocaleString('pt-BR')} códigos`);
+      setHeaderStatus(
+        'ready',
+        `${stats.baseCount.toLocaleString('pt-BR')} produtos • ${stats.barcodesCount.toLocaleString('pt-BR')} códigos`
+      );
 
       Toast.success(
         `Base carregada: ${stats.baseCount.toLocaleString('pt-BR')} produtos e ${stats.barcodesCount.toLocaleString('pt-BR')} códigos.`,
@@ -126,5 +151,15 @@
   });
 
   // Expõe helpers úteis para debug no console
-  window.App = { DataProcessor, Cart, History, Scanner, SearchEngine, ProductCard, Toast, Utils, ConfirmModal };
+  window.App = {
+    DataProcessor,
+    Cart,
+    History,
+    Scanner,
+    SearchEngine,
+    ProductCard,
+    Toast,
+    Utils,
+    ConfirmModal
+  };
 })();
