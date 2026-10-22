@@ -12,7 +12,7 @@
      8. Modais
      9. Spinner
     10. Autocomplete
-    11. Product Card (resultado da pesquisa)
+    11. Product Card (resultado da pesquisa + destaque)
     12. Card "não encontrado"
     13. Histórico de pesquisas
    ============================================================ */
@@ -518,6 +518,19 @@
   0%   { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.6); }
   70%  { box-shadow: 0 0 0 12px rgba(22, 163, 74, 0); }
   100% { box-shadow: var(--shadow); }
+}
+
+/* --- Destaque azul pulsante ao aparecer --- */
+.product-card-highlight {
+  animation: productPulse 1.2s ease;
+  border-color: var(--color-primary) !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25), var(--shadow-md) !important;
+}
+
+@keyframes productPulse {
+  0%   { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.5); }
+  70%  { box-shadow: 0 0 0 14px rgba(37, 99, 235, 0); }
+  100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25), var(--shadow-md); }
 }
 
 .product-head {
