@@ -1,5 +1,10 @@
 /* ============================================================
    searchEngine.js — Autocomplete + busca por descrição
+   ------------------------------------------------------------
+   Correções desta versão:
+     - Ao clicar numa sugestão, o card é renderizado E a página
+       rola até ele (feedback claro para o usuário)
+     - Fecha o dropdown antes de rolar (evita sobreposição)
    ============================================================ */
 
 const SearchEngine = (() => {
@@ -25,11 +30,10 @@ const SearchEngine = (() => {
     descInput.addEventListener('keydown', (e) => {
       if (!listEl || listEl.hidden) {
         if (e.key === 'Enter' && descInput.value.trim()) {
-          // Enter sem dropdown: tenta busca direta
           const q = descInput.value.trim();
           const results = DataProcessor.searchByDescription(q, 1);
           if (results.length) {
-            selectProduct(results[0].seqproduto, results[0].produto);
+            selectProduct(results[0].seqproduto);
             descInput.value = '';
           } else {
             Toast.error('Nenhum produto encontrado para esta descrição.');
@@ -37,24 +41,19 @@ const SearchEngine = (() => {
         }
         return;
       }
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        moveActive(1);
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        moveActive(-1);
-      } else if (e.key === 'Enter') {
+      if (e.key === 'ArrowDown') { e.preventDefault(); moveActive(1); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); moveActive(-1); }
+      else if (e.key === 'Enter') {
         e.preventDefault();
         if (activeIndex >= 0 && currentResults[activeIndex]) {
-          const r = currentResults[activeIndex];
-          selectProduct(r.seqproduto, r.produto);
+          selectProduct(currentResults[activeIndex].seqproduto);
+          descInput.value = '';
         }
       } else if (e.key === 'Escape') {
         close();
       }
     });
 
-    // Fecha ao clicar fora
     document.addEventListener('click', (e) => {
       if (!listEl.contains(e.target) && e.target !== descInput) close();
     });
@@ -97,7 +96,7 @@ const SearchEngine = (() => {
         <i class="fa-solid fa-arrow-right ac-arrow"></i>
       `;
       li.addEventListener('click', () => {
-        selectProduct(r.seqproduto, r.produto);
+        selectProduct(r.seqproduto);
         descInput.value = '';
         close();
       });
@@ -106,15 +105,29 @@ const SearchEngine = (() => {
     listEl.hidden = false;
   }
 
-  function selectProduct(seq, produto) {
-    const full = DataProcessor.getBySeq(seq);
+  /**
+   * Seleciona um produto pelo SEQPRODUTO (ou pelo código).
+   * Renderiza o card, adiciona ao histórico e rola até o card.
+   */
+  function selectProduct(seqOrProduct) {
+    let full = null;
+
+    if (typeof seqOrProduct === 'string') {
+      // Pode ser SEQPRODUTO ou código de barras
+      full = DataProcessor.getBySeq(seqOrProduct) || DataProcessor.findByBarcode(seqOrProduct);
+    } else if (seqOrProduct && seqOrProduct.seqproduto) {
+      full = seqOrProduct;
+    }
+
     if (!full) {
       Toast.error('Produto não encontrado na base.');
       return;
     }
-    if (window.ProductCard) ProductCard.render(full);
+
+    close(); // fecha o dropdown antes de rolar
+
+    if (window.ProductCard) ProductCard.render(full, { scroll: true });
     if (window.History) History.push(full);
-    close();
   }
 
   function close() {
@@ -125,9 +138,6 @@ const SearchEngine = (() => {
     activeIndex = -1;
   }
 
-  /**
-   * Dispara busca programática por descrição (usado em "código não encontrado").
-   */
   function searchNow(query) {
     if (!descInput) return;
     descInput.value = query;
