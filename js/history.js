@@ -1,10 +1,10 @@
 /* ============================================================
    history.js — Histórico de pesquisas (últimos 20)
    ------------------------------------------------------------
-   Correções desta versão:
-     - Ao clicar no histórico, o card é renderizado E a página
-       rola até ele (feedback visual imediato)
-     - Prioriza buscar por SEQPRODUTO; se falhar, tenta código
+   Correção desta versão:
+     - ConfirmModal vem de window.ConfirmModal (módulo separado)
+     - Guarda contra ConfirmModal indefinido (fallback nativo)
+     - Clique no histórico reabre card com scroll
    ============================================================ */
 
 const History = (() => {
@@ -24,17 +24,29 @@ const History = (() => {
     if (btnClear) {
       btnClear.addEventListener('click', () => {
         if (!items.length) { Toast.info('Histórico já está vazio.'); return; }
-        window.ConfirmModal.open({
-          title: 'Limpar histórico',
-          message: 'Remover todos os itens do histórico da sessão?',
-          confirmText: 'Limpar',
-          onConfirm: () => {
+
+        // Fallback: se ConfirmModal não existir (ordem de scripts errada),
+        // usa window.confirm nativo para não quebrar.
+        if (window.ConfirmModal && typeof window.ConfirmModal.open === 'function') {
+          window.ConfirmModal.open({
+            title: 'Limpar histórico',
+            message: 'Remover todos os itens do histórico da sessão?',
+            confirmText: 'Limpar',
+            onConfirm: () => {
+              items = [];
+              Storage.clearHistory();
+              render();
+              Toast.success('Histórico limpo.');
+            }
+          });
+        } else {
+          if (window.confirm('Remover todos os itens do histórico da sessão?')) {
             items = [];
             Storage.clearHistory();
             render();
             Toast.success('Histórico limpo.');
           }
-        });
+        }
       });
     }
 
@@ -43,8 +55,8 @@ const History = (() => {
         const btn = e.target.closest('[data-seq]');
         if (!btn) return;
         const seq = btn.getAttribute('data-seq');
-        // selectProduct já faz scroll e render
-        SearchEngine.selectProduct(seq);
+        // selectProduct renderiza o card com scroll + adiciona ao histórico
+        if (window.SearchEngine) SearchEngine.selectProduct(seq);
       });
     }
   }
