@@ -1,13 +1,11 @@
 /* ============================================================
-   productCard.js — Renderização do card do produto pesquisado
+   productCard.js — Card do produto pesquisado
    ------------------------------------------------------------
    Melhorias desta versão:
-     - Sempre que renderiza, faz scroll suave até o card
-       (útil quando o usuário clica em histórico/autocomplete)
-     - Destaque visual quando o produto já está no carrinho
-     - Input de quantidade SEMPRE visível e editável
-     - Botão "Adicionar" grande e destacado
-     - Botão "Atualizar quantidade" quando já existe
+     - Rolagem GARANTIDA até o card após render (setTimeout + rAF)
+     - Destaque visual pulsante (borda azul) ao aparecer
+     - Foco no input de quantidade
+     - Card SEMPRE visível mesmo com histórico cheio
    ============================================================ */
 
 const ProductCard = (() => {
@@ -47,7 +45,7 @@ const ProductCard = (() => {
       : '';
 
     root.innerHTML = `
-      <div class="card product-card" data-seq="${Utils.escapeHtml(product.seqproduto)}">
+      <div class="card product-card product-card-highlight" data-seq="${Utils.escapeHtml(product.seqproduto)}">
         <div class="product-head">
           <div class="product-title-wrap">
             <h3 class="product-name">${Utils.escapeHtml(product.produto)}</h3>
@@ -94,24 +92,28 @@ const ProductCard = (() => {
       </div>
     `;
 
-    // Scroll suave até o card (a menos que opts.scroll === false)
+    // Rolagem garantida: usa rAF + setTimeout para vencer layout/paint
     if (opts.scroll !== false) {
-      setTimeout(() => {
-        const card = root.querySelector('.product-card');
-        if (card) {
-          card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      }, 50);
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          const card = root.querySelector('.product-card');
+          if (card) {
+            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Remove o destaque depois que o usuário interagir
+            setTimeout(() => card.classList.remove('product-card-highlight'), 1800);
+          }
+        }, 60);
+      });
     }
 
-    // Foco no input de quantidade (útil para tablet/loja)
+    // Foco no input de quantidade (útil em tablet/loja)
     setTimeout(() => {
       const qty = root.querySelector('#qtyInput');
       if (qty) {
         qty.focus({ preventScroll: true });
         qty.select();
       }
-    }, 120);
+    }, 180);
   }
 
   function onRootChange(e) {
@@ -132,7 +134,6 @@ const ProductCard = (() => {
       const res = Cart.add(currentProduct, qty);
       render(currentProduct, { scroll: false });
 
-      // Animação de sucesso
       if (res && !res.updated) {
         const cardEl = root.querySelector('.product-card');
         if (cardEl) {
@@ -141,7 +142,6 @@ const ProductCard = (() => {
         }
       }
 
-      // Foco de volta no input de código de barras (para próxima leitura)
       setTimeout(() => {
         const bc = document.getElementById('barcodeInput');
         if (bc) bc.focus();
