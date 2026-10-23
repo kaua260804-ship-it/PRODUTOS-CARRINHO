@@ -1,11 +1,5 @@
 /* ============================================================
    productCard.js — Card do produto pesquisado
-   ------------------------------------------------------------
-   Melhorias desta versão:
-     - Rolagem GARANTIDA até o card após render (setTimeout + rAF)
-     - Destaque visual pulsante (borda azul) ao aparecer
-     - Foco no input de quantidade
-     - Card SEMPRE visível mesmo com histórico cheio
    ============================================================ */
 
 const ProductCard = (() => {
@@ -15,15 +9,8 @@ const ProductCard = (() => {
   function init() {
     root = document.getElementById('productResult');
     if (!root) return;
-    root.addEventListener('click', onRootClick);
-    root.addEventListener('change', onRootChange);
   }
 
-  /**
-   * Renderiza o card e rola até ele.
-   * @param {object} product
-   * @param {{scroll?: boolean}} [opts]
-   */
   function render(product, opts = {}) {
     if (!root || !product) return;
     currentProduct = product;
@@ -83,7 +70,7 @@ const ProductCard = (() => {
               inputmode="numeric"
               aria-label="Quantidade">
           </div>
-          <button type="button" class="btn btn-success btn-add-cart" data-action="add">
+          <button type="button" class="btn btn-success btn-add-cart" id="btnAddCart">
             <i class="fa-solid fa-plus"></i> Adicionar ao Carrinho
           </button>
         </div>
@@ -92,114 +79,54 @@ const ProductCard = (() => {
       </div>
     `;
 
-    // Rolagem garantida: usa rAF + setTimeout para vencer layout/paint
     if (opts.scroll !== false) {
       requestAnimationFrame(() => {
         setTimeout(() => {
           const card = root.querySelector('.product-card');
           if (card) {
             card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            // Remove o destaque depois que o usuário interagir
             setTimeout(() => card.classList.remove('product-card-highlight'), 1800);
           }
         }, 60);
       });
     }
 
-    // Foco no input de quantidade (útil em tablet/loja)
     setTimeout(() => {
       const qty = root.querySelector('#qtyInput');
-      if (qty) {
-        qty.focus({ preventScroll: true });
-        qty.select();
-      }
+      if (qty) qty.focus({ preventScroll: true });
     }, 180);
-  }
 
-  function onRootChange(e) {
-    if (e.target.matches('#qtyInput')) {
-      let v = parseInt(e.target.value, 10);
-      if (isNaN(v) || v < 1) { v = 1; e.target.value = '1'; }
-    }
-  }
-
-  function onRootClick(e) {
-    const btn = e.target.closest('[data-action]');
-    if (!btn || !currentProduct) return;
-    const action = btn.getAttribute('data-action');
-
-    if (action === 'add') {
-      const qtyInput = root.querySelector('#qtyInput');
-      const qty = Math.max(1, parseInt(qtyInput?.value, 10) || 1);
-      const res = Cart.add(currentProduct, qty);
-      render(currentProduct, { scroll: false });
-
-      if (res && !res.updated) {
-        const cardEl = root.querySelector('.product-card');
-        if (cardEl) {
-          cardEl.classList.add('just-added');
-          setTimeout(() => cardEl.classList.remove('just-added'), 600);
+    // BIND DIRETO DO BOTÃO DE ADICIONAR
+    const btnAdd = root.querySelector('#btnAddCart');
+    if (btnAdd) {
+      btnAdd.addEventListener('click', () => {
+        const qtyInput = root.querySelector('#qtyInput');
+        const qty = Math.max(1, parseInt(qtyInput?.value, 10) || 1);
+        const res = Cart.add(currentProduct, qty);
+        render(currentProduct, { scroll: false });
+        
+        if (res && !res.updated) {
+          const cardEl = root.querySelector('.product-card');
+          if (cardEl) {
+            cardEl.classList.add('just-added');
+            setTimeout(() => cardEl.classList.remove('just-added'), 600);
+          }
         }
-      }
-
-      setTimeout(() => {
-        const bc = document.getElementById('barcodeInput');
-        if (bc) bc.focus();
-      }, 80);
-    }
-
-    if (action === 'update-qty') {
-      const qtyInput = root.querySelector('#qtyInput');
-      const qty = Math.max(1, parseInt(qtyInput?.value, 10) || 1);
-      Cart.setQty(currentProduct.seqproduto, Cart.getQty(currentProduct.seqproduto) + qty);
-      render(currentProduct, { scroll: false });
-      Toast.success(`Quantidade de ${currentProduct.produto} atualizada.`, 'Carrinho');
-    }
-  }
-
-  function renderNotFound(query, suggestions = []) {
-    if (!root) return;
-    currentProduct = null;
-    const sugHtml = suggestions.length
-      ? `<div class="not-found-suggestions">
-           <p class="nf-sub">Você quis dizer?</p>
-           <ul>
-             ${suggestions.map(s => `
-               <li>
-                 <button class="suggestion-btn" data-seq="${Utils.escapeHtml(s.seqproduto)}">
-                   <i class="fa-solid fa-magnifying-glass"></i>
-                   <span>${Utils.escapeHtml(s.produto)}</span>
-                   <span class="badge badge-gray">SEQ ${Utils.escapeHtml(s.seqproduto)}</span>
-                 </button>
-               </li>
-             `).join('')}
-           </ul>
-         </div>`
-      : '';
-
-    root.innerHTML = `
-      <div class="card not-found-card">
-        <div class="not-found-head">
-          <i class="fa-solid fa-circle-exclamation"></i>
-          <h3>Produto não encontrado</h3>
-        </div>
-        <p>Não localizamos "<strong>${Utils.escapeHtml(query)}</strong>" na base.</p>
-        ${sugHtml}
-      </div>
-    `;
-
-    root.querySelectorAll('.suggestion-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const seq = btn.getAttribute('data-seq');
-        SearchEngine.selectProduct(seq);
       });
-    });
+    }
+
+    // BIND DO BOTÃO DE ATUALIZAR QUANTIDADE
+    const btnUpdate = root.querySelector('[data-action="update-qty"]');
+    if (btnUpdate) {
+      btnUpdate.addEventListener('click', () => {
+        const qtyInput = root.querySelector('#qtyInput');
+        const qty = Math.max(1, parseInt(qtyInput?.value, 10) || 1);
+        Cart.setQty(currentProduct.seqproduto, Cart.getQty(currentProduct.seqproduto) + qty);
+        render(currentProduct, { scroll: false });
+        Toast.success(`Quantidade de ${currentProduct.produto} atualizada.`, 'Carrinho');
+      });
+    }
   }
 
-  function clear() {
-    if (root) root.innerHTML = '';
-    currentProduct = null;
-  }
-
-  return { init, render, renderNotFound, clear };
+  return { init, render };
 })();
