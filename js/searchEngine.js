@@ -1,13 +1,8 @@
 /* ============================================================
    searchEngine.js — Autocomplete + busca por descrição
-   ------------------------------------------------------------
-   Correção desta versão:
-     - Ao selecionar, PRIMEIRO renderiza o card (com scroll),
-       DEPOIS adiciona ao histórico — a ordem importa para o
-       usuário ver o card em destaque.
    ============================================================ */
 
-const SearchEngine = (() => {
+window.SearchEngine = (() => {
   let descInput = null;
   let listEl = null;
   let activeIndex = -1;
@@ -105,10 +100,6 @@ const SearchEngine = (() => {
     listEl.hidden = false;
   }
 
-  /**
-   * Seleciona um produto (por SEQ ou código).
-   * ORDEM CORRETA: fecha dropdown → renderiza card → histórico.
-   */
   function selectProduct(seqOrProduct) {
     let full = null;
 
@@ -123,13 +114,9 @@ const SearchEngine = (() => {
       return;
     }
 
-    close(); // fecha dropdown primeiro
-
-    // 1) Renderiza card com scroll garantido
-    if (window.ProductCard) ProductCard.render(full, { scroll: true });
-
-    // 2) Só depois registra no histórico
-    if (window.History) History.push(full);
+    close(); 
+    if (window.ProductCard) window.ProductCard.render(full, { scroll: true });
+    if (window.History) window.History.push(full);
   }
 
   function close() {
@@ -140,13 +127,5 @@ const SearchEngine = (() => {
     activeIndex = -1;
   }
 
-  function searchNow(query) {
-    if (!descInput) return;
-    descInput.value = query;
-    descInput.focus();
-    const results = DataProcessor.searchByDescription(query, CONFIG.MAX_AUTOCOMPLETE);
-    render(query, results);
-  }
-
-  return { init, selectProduct, close, searchNow };
+  return { init, selectProduct, close };
 })();
