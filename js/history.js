@@ -1,10 +1,5 @@
 /* ============================================================
    history.js — Histórico de pesquisas (últimos 20)
-   ------------------------------------------------------------
-   Correção desta versão:
-     - ConfirmModal vem de window.ConfirmModal (módulo separado)
-     - Guarda contra ConfirmModal indefinido (fallback nativo)
-     - Clique no histórico reabre card com scroll
    ============================================================ */
 
 const History = (() => {
@@ -24,10 +19,7 @@ const History = (() => {
     if (btnClear) {
       btnClear.addEventListener('click', () => {
         if (!items.length) { Toast.info('Histórico já está vazio.'); return; }
-
-        // Fallback: se ConfirmModal não existir (ordem de scripts errada),
-        // usa window.confirm nativo para não quebrar.
-        if (window.ConfirmModal && typeof window.ConfirmModal.open === 'function') {
+        if (window.ConfirmModal) {
           window.ConfirmModal.open({
             title: 'Limpar histórico',
             message: 'Remover todos os itens do histórico da sessão?',
@@ -39,24 +31,37 @@ const History = (() => {
               Toast.success('Histórico limpo.');
             }
           });
-        } else {
-          if (window.confirm('Remover todos os itens do histórico da sessão?')) {
-            items = [];
-            Storage.clearHistory();
-            render();
-            Toast.success('Histórico limpo.');
-          }
         }
       });
     }
 
+    // OUVINTE DE CLIQUE DO HISTÓRICO
     if (listEl) {
       listEl.addEventListener('click', (e) => {
         const btn = e.target.closest('[data-seq]');
         if (!btn) return;
+        
         const seq = btn.getAttribute('data-seq');
-        // selectProduct renderiza o card com scroll + adiciona ao histórico
-        if (window.SearchEngine) SearchEngine.selectProduct(seq);
+        console.log('[history] Clicou no produto SEQ:', seq);
+
+        // Busca o produto na base de dados
+        const product = DataProcessor.getBySeq(seq);
+        
+        if (!product) {
+          console.error('[history] Produto não encontrado no DataProcessor:', seq);
+          Toast.error('Produto não encontrado na base.');
+          return;
+        }
+
+        // 1. Renderiza o card do produto (isso faz o botão "Adicionar" aparecer)
+        if (window.ProductCard) {
+          ProductCard.render(product, { scroll: true });
+        } else {
+          console.error('[history] ProductCard não está definido!');
+        }
+
+        // 2. Sobe para o topo do histórico
+        push(product);
       });
     }
   }
@@ -116,11 +121,5 @@ const History = (() => {
     }).join('');
   }
 
-  function clear() {
-    items = [];
-    Storage.clearHistory();
-    render();
-  }
-
-  return { init, push, render, clear };
+  return { init, push, render };
 })();
