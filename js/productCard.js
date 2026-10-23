@@ -2,13 +2,13 @@
    productCard.js — Card do produto pesquisado
    ============================================================ */
 
-const ProductCard = (() => {
+// Expõe globalmente logo de cara
+window.ProductCard = (() => {
   let root = null;
   let currentProduct = null;
 
   function init() {
     root = document.getElementById('productResult');
-    if (!root) return;
   }
 
   function render(product, opts = {}) {
